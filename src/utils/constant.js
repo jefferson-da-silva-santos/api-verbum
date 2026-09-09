@@ -18,6 +18,15 @@ export const API_MESSAGES = {
   REACAO_REMOVED: 'Reação removida com sucesso.',
   REACAO_NOT_FOUND: 'Reação não encontrada.',
 
+  // Favoritos
+  FAVORITO_ADDED: 'Pergunta adicionada aos favoritos.',
+  FAVORITO_REMOVED: 'Pergunta removida dos favoritos.',
+  FAVORITO_NOT_FOUND: 'Essa pergunta não estava nos favoritos.',
+
+  // Leitura
+  LEITURA_MARKED: 'Pergunta marcada como lida.',
+  LEITURA_UNMARKED: 'Pergunta marcada como não lida.',
+
   // Genéricas
   INVALID_ID: 'Id inválido.',
   VALIDATION_ERROR: 'Dados inválidos.',

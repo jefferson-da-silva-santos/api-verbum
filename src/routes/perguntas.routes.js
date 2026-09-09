@@ -3,6 +3,7 @@ import GatewayController from '../controllers/GatewayController.js';
 import { CreatePerguntaService } from '../services/pergunta/CreatePerguntaService.js';
 import { CreateSugestaoPerguntaService } from '../services/pergunta/CreateSugestaoPerguntaService.js';
 import { ListPerguntasService } from '../services/pergunta/ListPerguntasService.js';
+import { GetCategoriasService } from '../services/pergunta/GetCategoriasService.js';
 import { GetPerguntaService } from '../services/pergunta/GetPerguntaService.js';
 import { UpdatePerguntaService } from '../services/pergunta/UpdatePerguntaService.js';
 import { DeletePerguntaService } from '../services/pergunta/DeletePerguntaService.js';
@@ -36,7 +37,7 @@ export default function perguntasRoutes(perguntaRepository) {
    * @openapi
    * /perguntas:
    *   get:
-   *     summary: Lista/busca perguntas. Suporta ?q= (texto), ?bookSlug=, ?page= e ?limit=.
+   *     summary: Lista/busca perguntas. Suporta ?q=, ?bookSlug=, ?categoria=, ?keyword=, ?identificador= (lidas vão pro final), ?page= e ?limit=.
    *     tags: [Perguntas]
    */
   router.get('/', (req, res, next) =>
@@ -44,9 +45,19 @@ export default function perguntasRoutes(perguntaRepository) {
 
   /**
    * @openapi
+   * /perguntas/categorias:
+   *   get:
+   *     summary: Lista as categorias em uso (com contagem) — para montar filtros na UI.
+   *     tags: [Perguntas]
+   */
+  router.get('/categorias', (req, res, next) =>
+    new GatewayController(new GetCategoriasService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
    * /perguntas/{id}:
    *   get:
-   *     summary: Busca uma única pergunta por id, com suas referências.
+   *     summary: Busca uma única pergunta por id, com referências. Com ?identificador=, inclui favoritada/lida.
    *     tags: [Perguntas]
    */
   router.get('/:id', (req, res, next) =>

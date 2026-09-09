@@ -83,6 +83,28 @@ const app = createApp({ perguntaRepository }); // injetado até as rotas
 
 ---
 
+## 🔌 Rotas — módulo Favoritos
+
+Sem login ainda, então favoritos também são por **`identificador`** (o mesmo id local usado em reações/leitura).
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/perguntas/:perguntaId/favoritos` | favorita — body: `{ "identificador": "..." }` |
+| `DELETE` | `/perguntas/:perguntaId/favoritos/:identificador` | desfavorita |
+| `GET` | `/favoritos?identificador=...` | lista os favoritos desse identificador, paginado, mais recentes primeiro |
+
+## 🔌 Rotas — módulo Leitura ("Já vi")
+
+Marcar uma pergunta como lida não é público — só afeta a ordem que **aquele
+identificador** vê nas listagens: perguntas lidas vão pro final (sem sumir,
+só perdem prioridade), o que acontece automaticamente quando `GET /perguntas`
+é chamado com `?identificador=`.
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/perguntas/:perguntaId/leitura` | marca como lida — body: `{ "identificador": "..." }` |
+| `DELETE` | `/perguntas/:perguntaId/leitura/:identificador` | desmarca (volta a aparecer na posição normal) |
+
 ## 🔌 Rotas — módulo Comentários
 
 | Método | Rota | Descrição |
@@ -133,11 +155,20 @@ Toda pergunta tem um `status`: **PENDENTE** (enviada pelo app, aguardando revis�
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
 | `POST` | `/perguntas/sugestoes` | **envio público** — usuário manda só `{ pergunta, autorPergunta? }`; nasce `PENDENTE`, sem resposta |
-| `POST` | `/perguntas` | cadastro completo (admin/importação) — pergunta + resposta + referências, nasce `PUBLICADA` por padrão |
-| `GET` | `/perguntas` | lista/busca (só `PUBLICADA`) — `?q=`, `?bookSlug=`, `?page=`, `?limit=`, mais recentes primeiro |
-| `GET` | `/perguntas/:id` | busca uma pergunta (só `PUBLICADA`, com referências) |
-| `PUT` | `/perguntas/:id` | atualiza pergunta/resposta/referências/**status** — é assim que a revisão externa aprova/rejeita |
+| `POST` | `/perguntas` | cadastro completo (admin/importação) — pergunta + resposta + referências + categoria + palavrasChave, nasce `PUBLICADA` por padrão |
+| `GET` | `/perguntas` | lista/busca (só `PUBLICADA`) — `?q=`, `?bookSlug=`, `?categoria=`, `?keyword=`, `?identificador=` (perguntas já lidas por ele vão pro final), `?page=`, `?limit=`, mais recentes primeiro |
+| `GET` | `/perguntas/categorias` | categorias em uso, com contagem — pra montar filtros na UI |
+| `GET` | `/perguntas/:id` | busca uma pergunta (só `PUBLICADA`). Com `?identificador=`, inclui `favoritada`/`lida` |
+| `PUT` | `/perguntas/:id` | atualiza pergunta/resposta/categoria/palavrasChave/referencias/**status** — é assim que a revisão externa aprova/rejeita |
 | `DELETE` | `/perguntas/:id` | remove uma pergunta |
+
+### Exemplo — filtrar por categoria e palavra-chave
+
+```bash
+curl "http://localhost:3000/api/v1/perguntas?categoria=Escatologia"
+curl "http://localhost:3000/api/v1/perguntas?keyword=jejum"
+curl "http://localhost:3000/api/v1/perguntas/categorias"
+```
 
 ### Exemplo — usuário envia uma pergunta pelo app
 
@@ -210,4 +241,3 @@ MIT
 ---
 
 Feito com 💪, precisão de mira e café forte ☕ — arquitetura inspirada no [Sotov Framework](https://www.npmjs.com/package/sotov), de **Jefferson Dev**.
-# api-verbum

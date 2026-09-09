@@ -32,13 +32,20 @@ model Pergunta {
   // importadas não têm autor conhecido).
   autorPergunta String?        @map("autor_pergunta")
   status        PerguntaStatus @default(PENDENTE)
+  // Classificação temática (ex: "Escatologia", "Cristologia") e palavras-chave
+  // pra busca/navegação por assunto. Nulas em perguntas ainda PENDENTE.
+  categoria     String?
+  palavrasChave String[]       @default([]) @map("palavras_chave")
   referencias   Referencia[]
   comentarios   Comentario[]
   reacoes       Reacao[]
+  favoritos     Favorito[]
+  leituras      Leitura[]
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
   @@index([status])
+  @@index([categoria])
   @@map("perguntas")
 }
 
@@ -93,4 +100,35 @@ model Reacao {
   @@index([perguntaId])
   @@index([tipo])
   @@map("reacoes")
+}
+
+// ── Módulo: Favoritos ───────────────────────────────────────────────
+
+model Favorito {
+  id            Int      @id @default(autoincrement())
+  perguntaId    Int      @map("pergunta_id")
+  pergunta      Pergunta @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  // mesmo identificador local (device/sessão) usado em Reacao — sem login ainda.
+  identificador String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([perguntaId, identificador])
+  @@index([identificador])
+  @@map("favoritos")
+}
+
+// ── Módulo: Leitura ("Já vi") ────────────────────────────────────────
+// Ao marcar como lida, a pergunta passa a aparecer por último nas listagens
+// daquele identificador (ver PerguntaRepository.search).
+
+model Leitura {
+  id            Int      @id @default(autoincrement())
+  perguntaId    Int      @map("pergunta_id")
+  pergunta      Pergunta @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  identificador String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([perguntaId, identificador])
+  @@index([identificador])
+  @@map("leituras")
 }

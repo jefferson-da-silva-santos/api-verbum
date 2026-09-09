@@ -20,7 +20,7 @@ function mapReferencias(referencias = []) {
 }
 
 async function main() {
-  const filePath = path.join(__dirname, '..', 'data', 'perguntas_respostas_com_referencias.json');
+  const filePath = path.join(__dirname, '..', 'data', 'perguntas_completo.json');
   const raw = await fs.readFile(filePath, 'utf-8');
   const items = JSON.parse(raw);
 
@@ -33,6 +33,8 @@ async function main() {
       update: {
         pergunta: item.pergunta,
         resposta: item.resposta,
+        categoria: item.categoria ?? null,
+        palavrasChave: item.palavrasChave ?? [],
         status: 'PUBLICADA', // perguntas importadas já nascem revisadas/publicadas
         referencias: {
           deleteMany: {}, // substitui as referências antigas pelas atuais do arquivo
@@ -43,6 +45,8 @@ async function main() {
         id: item.id,
         pergunta: item.pergunta,
         resposta: item.resposta,
+        categoria: item.categoria ?? null,
+        palavrasChave: item.palavrasChave ?? [],
         status: 'PUBLICADA',
         referencias: { create: mapReferencias(item.referencias) },
       },
