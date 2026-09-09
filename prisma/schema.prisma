@@ -1,0 +1,96 @@
+// Schema do Prisma — Verbum API
+// Datasource: Neon PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Módulo: Perguntas & Respostas ──────────────────────────────────
+
+// PENDENTE   → enviada por um usuário do app, aguardando revisão externa (fora desta API)
+// PUBLICADA  → aprovada e visível no app (tem resposta)
+// REJEITADA  → descartada na revisão; nunca aparece no app
+enum PerguntaStatus {
+  PENDENTE
+  PUBLICADA
+  REJEITADA
+}
+
+model Pergunta {
+  // autoincrement a partir de agora — as 309 perguntas importadas mantêm seus ids
+  // originais (0-308) e a sequence é realinhada no seed (ver prisma/seed.js).
+  id            Int            @id @default(autoincrement())
+  pergunta      String
+  // Nula enquanto a pergunta está PENDENTE (ainda não foi respondida).
+  resposta      String?        @db.Text
+  // Nome de quem enviou a pergunta pelo app, quando disponível (perguntas
+  // importadas não têm autor conhecido).
+  autorPergunta String?        @map("autor_pergunta")
+  status        PerguntaStatus @default(PENDENTE)
+  referencias   Referencia[]
+  comentarios   Comentario[]
+  reacoes       Reacao[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("perguntas")
+}
+
+model Referencia {
+  id         Int      @id @default(autoincrement())
+  display    String
+  bookSlug   String   @map("book_slug")
+  chapter    Int
+  verse      Int?
+  perguntaId Int      @map("pergunta_id")
+  pergunta   Pergunta @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+
+  @@index([perguntaId])
+  @@index([bookSlug])
+  @@map("referencias")
+}
+
+// ── Módulo: Comentários ────────────────────────────────────────────
+
+model Comentario {
+  id         Int      @id @default(autoincrement())
+  texto      String   @db.Text
+  autor      String?
+  perguntaId Int      @map("pergunta_id")
+  pergunta   Pergunta @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([perguntaId])
+  @@map("comentarios")
+}
+
+// ── Módulo: Reações ("Minha dúvida foi esclarecida" / "Ainda tenho dúvidas") ──
+
+enum ReacaoTipo {
+  ESCLARECIDA
+  DUVIDA
+}
+
+model Reacao {
+  id            Int        @id @default(autoincrement())
+  tipo          ReacaoTipo
+  perguntaId    Int        @map("pergunta_id")
+  pergunta      Pergunta   @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  // identifica quem reagiu (device id / session id do app) — não há login ainda,
+  // então usamos isso para permitir trocar o voto em vez de duplicar reações.
+  identificador String
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@unique([perguntaId, identificador])
+  @@index([perguntaId])
+  @@index([tipo])
+  @@map("reacoes")
+}

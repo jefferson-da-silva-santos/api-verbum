@@ -1,0 +1,76 @@
+import { Router } from 'express';
+import GatewayController from '../controllers/GatewayController.js';
+import { CreatePerguntaService } from '../services/pergunta/CreatePerguntaService.js';
+import { CreateSugestaoPerguntaService } from '../services/pergunta/CreateSugestaoPerguntaService.js';
+import { ListPerguntasService } from '../services/pergunta/ListPerguntasService.js';
+import { GetPerguntaService } from '../services/pergunta/GetPerguntaService.js';
+import { UpdatePerguntaService } from '../services/pergunta/UpdatePerguntaService.js';
+import { DeletePerguntaService } from '../services/pergunta/DeletePerguntaService.js';
+// import { auth } from '../middlewares/auth.js'; // pronto para quando existir módulo de usuários/login
+
+// Módulo de rotas recebe o repositório por injeção de dependência (padrão Sotov).
+export default function perguntasRoutes(perguntaRepository) {
+  const router = Router();
+
+  /**
+   * @openapi
+   * /perguntas/sugestoes:
+   *   post:
+   *     summary: Envio público (dentro do app) — o usuário manda só a pergunta, que fica PENDENTE até ser revisada fora desta API.
+   *     tags: [Perguntas]
+   */
+  router.post('/sugestoes', (req, res, next) =>
+    new GatewayController(new CreateSugestaoPerguntaService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
+   * /perguntas:
+   *   post:
+   *     summary: Cadastro completo (admin/importação) — pergunta, resposta e referências, já publicado por padrão.
+   *     tags: [Perguntas]
+   */
+  router.post('/', (req, res, next) =>
+    new GatewayController(new CreatePerguntaService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
+   * /perguntas:
+   *   get:
+   *     summary: Lista/busca perguntas. Suporta ?q= (texto), ?bookSlug=, ?page= e ?limit=.
+   *     tags: [Perguntas]
+   */
+  router.get('/', (req, res, next) =>
+    new GatewayController(new ListPerguntasService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
+   * /perguntas/{id}:
+   *   get:
+   *     summary: Busca uma única pergunta por id, com suas referências.
+   *     tags: [Perguntas]
+   */
+  router.get('/:id', (req, res, next) =>
+    new GatewayController(new GetPerguntaService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
+   * /perguntas/{id}:
+   *   put:
+   *     summary: Atualiza pergunta/resposta/referencias. Se "referencias" vier no corpo, substitui todas.
+   *     tags: [Perguntas]
+   */
+  router.put('/:id', (req, res, next) =>
+    new GatewayController(new UpdatePerguntaService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
+   * /perguntas/{id}:
+   *   delete:
+   *     summary: Remove uma pergunta (e suas referências, em cascata).
+   *     tags: [Perguntas]
+   */
+  router.delete('/:id', (req, res, next) =>
+    new GatewayController(new DeletePerguntaService(perguntaRepository)).handle(req, res, next));
+
+  return router;
+}
