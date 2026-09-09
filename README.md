@@ -1,0 +1,213 @@
+# 📖 Verbum API
+
+API do app **Verbum**, construída em **Node.js + Express**, seguindo a arquitetura do **framework Sotov** (padrão Factory + Injeção de Dependência), mas com **Prisma + Neon PostgreSQL** no lugar do Sequelize.
+
+Este é o **módulo inicial: Perguntas & Respostas bíblicas**. Novos módulos (ex: versículos, usuários, favoritos) entram na mesma estrutura, cada um com seu próprio Repository → Service → Controller → Rotas.
+
+---
+
+## 📦 Instalação
+
+```bash
+npm install
+```
+
+## ⚙️ Configuração
+
+1. Copie o `.env.example` para `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. No painel da [Neon](https://neon.tech), copie a **connection string** do seu projeto/banco e cole em `DATABASE_URL` (mantenha `?sslmode=require` no final).
+3. Ajuste `JWT_SECRET`, `PORT` e `BASE_URL` se quiser.
+
+## 🗄️ Banco de dados (Prisma + Neon)
+
+```bash
+# gera o client do Prisma
+npm run prisma:generate
+
+# cria as tabelas no banco (perguntas, referencias)
+npm run prisma:migrate
+
+# importa o JSON de perguntas/respostas/referências para o Postgres
+npm run seed
+```
+
+O `npm run seed` lê `data/perguntas_respostas_com_referencias.json` (309 perguntas já com as referências bíblicas extraídas) e faz um `upsert` de cada uma — pode rodar quantas vezes quiser, sem duplicar.
+
+## 💻 Rodando o servidor
+
+```bash
+npm run dev     # com reload automático (nodemon)
+# ou
+npm start
+```
+
+> Servidor rodando em `http://localhost:3000`
+> Documentação (Swagger) em `http://localhost:3000/docs`
+> ✅ Database connected!
+
+## 🧪 Testes
+
+```bash
+npm test
+```
+
+---
+
+## 📂 Estrutura de diretórios
+
+| Diretório | Descrição |
+| :--- | :--- |
+| `prisma/` | `schema.prisma` (models) e `seed.js` (importação do JSON) |
+| `data/` | JSON de origem usado pelo seed |
+| `src/config` | Conexão com o banco (`database.js`) e Swagger |
+| `src/controllers` | `GatewayController` — padroniza toda resposta HTTP |
+| `src/middlewares` | `auth` (JWT), `error` (handler global), `limiter` (rate limit) |
+| `src/repositories` | `AbstractRepository` (CRUD genérico via Prisma) + repositórios de cada módulo |
+| `src/services` | `AbstractService` + lógica de negócio de cada módulo (ex: `services/pergunta`) |
+| `src/routes` | Um arquivo de rotas por módulo + `index.js` agregador |
+| `src/utils` | `ApiError`, `logger` (winston), `cache` (node-cache), `validations` (Joi), `constant` |
+| `test/` | Testes (Jest + Supertest) |
+| `app.js` | Monta o Express (middlewares globais, Swagger, rotas, error handler) |
+| `index.js` | Ponto de entrada: conecta no banco, injeta os repositórios, sobe o servidor |
+
+### 🧠 Injeção de dependência
+
+```javascript
+// index.js
+const perguntaRepository = new PerguntaRepository(prisma);
+const app = createApp({ perguntaRepository }); // injetado até as rotas
+```
+
+---
+
+## 🔌 Rotas — módulo Comentários
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/perguntas/:perguntaId/comentarios` | adiciona um comentário à pergunta |
+| `GET` | `/perguntas/:perguntaId/comentarios` | lista comentários (paginado, mais recentes primeiro) |
+| `PUT` | `/comentarios/:id` | atualiza o texto de um comentário |
+| `DELETE` | `/comentarios/:id` | remove um comentário |
+
+```bash
+curl -X POST http://localhost:3000/api/v1/perguntas/1/comentarios \
+  -H "Content-Type: application/json" \
+  -d '{ "texto": "Esse estudo me ajudou muito!", "autor": "Jefferson" }'
+```
+
+## 🔌 Rotas — módulo Reações (like / deslike)
+
+"Minha dúvida foi esclarecida" = `ESCLARECIDA` (like) · "Ainda tenho dúvidas" = `DUVIDA` (deslike).
+
+Como ainda não existe módulo de usuários/login, cada voto é identificado por um
+**`identificador`** enviado pelo cliente (ex: um id de dispositivo/sessão gerado no app).
+Isso permite trocar o voto depois, sem duplicar reações.
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/perguntas/:perguntaId/reacoes` | registra/troca o voto — body: `{ "tipo": "ESCLARECIDA" \| "DUVIDA", "identificador": "..." }` |
+| `GET` | `/perguntas/:perguntaId/reacoes` | contagem `{ esclarecida, duvida }` da pergunta |
+| `GET` | `/perguntas/:perguntaId/reacoes/:identificador` | qual foi a reação desse identificador (`{ tipo: "ESCLARECIDA" \| "DUVIDA" \| null }`) — útil pra marcar o botão certo na UI |
+| `DELETE` | `/perguntas/:perguntaId/reacoes/:identificador` | desfaz o voto daquele identificador |
+| `GET` | `/reacoes/ranking/esclarecidas` | perguntas com **mais likes** (mais "esclarecida"), paginado |
+| `GET` | `/reacoes/ranking/duvidas` | perguntas com **mais deslikes** (mais "dúvida"), paginado |
+
+```bash
+curl -X POST http://localhost:3000/api/v1/perguntas/1/reacoes \
+  -H "Content-Type: application/json" \
+  -d '{ "tipo": "ESCLARECIDA", "identificador": "device-123" }'
+
+curl "http://localhost:3000/api/v1/reacoes/ranking/esclarecidas?page=1&limit=10"
+curl "http://localhost:3000/api/v1/reacoes/ranking/duvidas"
+```
+
+## 🔌 Rotas — módulo Perguntas
+
+Prefixo padrão: `/api/v1` (configurável via `BASE_URL` no `.env`)
+
+Toda pergunta tem um `status`: **PENDENTE** (enviada pelo app, aguardando revisão — não aparece pra ninguém), **PUBLICADA** (aprovada, visível no app) ou **REJEITADA** (descartada). As rotas públicas (`GET /perguntas`, `GET /perguntas/:id`, comentários e reações) só enxergam perguntas `PUBLICADA`. A revisão (aprovar, responder, rejeitar) acontece **fora desta API**, em outro projeto, que atualiza o registro via `PUT /perguntas/:id` (mandando `resposta`, `referencias` e `status: "PUBLICADA"`, por exemplo).
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/perguntas/sugestoes` | **envio público** — usuário manda só `{ pergunta, autorPergunta? }`; nasce `PENDENTE`, sem resposta |
+| `POST` | `/perguntas` | cadastro completo (admin/importação) — pergunta + resposta + referências, nasce `PUBLICADA` por padrão |
+| `GET` | `/perguntas` | lista/busca (só `PUBLICADA`) — `?q=`, `?bookSlug=`, `?page=`, `?limit=`, mais recentes primeiro |
+| `GET` | `/perguntas/:id` | busca uma pergunta (só `PUBLICADA`, com referências) |
+| `PUT` | `/perguntas/:id` | atualiza pergunta/resposta/referências/**status** — é assim que a revisão externa aprova/rejeita |
+| `DELETE` | `/perguntas/:id` | remove uma pergunta |
+
+### Exemplo — usuário envia uma pergunta pelo app
+
+```bash
+curl -X POST http://localhost:3000/api/v1/perguntas/sugestoes \
+  -H "Content-Type: application/json" \
+  -d '{ "pergunta": "Posso orar em qualquer lugar?", "autorPergunta": "Jefferson" }'
+# -> { "success": true, "data": { "id": 310, "status": "PENDENTE", "resposta": null, ... } }
+```
+
+### Exemplo — criar
+
+```bash
+curl -X POST http://localhost:3000/api/v1/perguntas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pergunta": "O que é a graça de Deus?",
+    "resposta": "A graça é o favor imerecido de Deus para com o homem (Ef 2.8,9).",
+    "referencias": [
+      { "display": "Ef 2.8,9", "bookSlug": "ef", "chapter": 2, "verse": 8 }
+    ]
+  }'
+```
+
+### Exemplo — buscar por texto e por livro citado
+
+```bash
+curl "http://localhost:3000/api/v1/perguntas?q=graça&page=1&limit=10"
+curl "http://localhost:3000/api/v1/perguntas?bookSlug=jo"
+```
+
+### Formato de resposta (padrão em todas as rotas)
+
+```json
+{
+  "success": true,
+  "data": { "...": "..." },
+  "meta": { "page": 1, "limit": 20, "total": 309, "totalPages": 16 }
+}
+```
+
+Erros seguem o mesmo padrão, trocando `data`/`meta` por `message`:
+
+```json
+{ "success": false, "message": "Pergunta não encontrada." }
+```
+
+---
+
+## 🧭 Como adicionar um novo módulo
+
+Siga o mesmo caminho do módulo de perguntas:
+
+1. **`prisma/schema.prisma`** — adicione o novo `model` e rode `prisma migrate dev`.
+2. **Repository** — crie `src/repositories/NovoRepository.js` estendendo `AbstractRepository`.
+3. **Services** — crie `src/services/novo/*.js` estendendo `AbstractService`.
+4. **Rotas** — crie `src/routes/novo.routes.js` recebendo o repositório por parâmetro.
+5. **Integração** — registre em `src/routes/index.js`:
+   ```javascript
+   router.use('/novo', novoRoutes(repositories.novoRepository));
+   ```
+   E injete o repositório em `index.js` (raiz), junto de `perguntaRepository`.
+
+---
+
+## 📝 Licença
+
+MIT
+
+---
+
+Feito com 💪, precisão de mira e café forte ☕ — arquitetura inspirada no [Sotov Framework](https://www.npmjs.com/package/sotov), de **Jefferson Dev**.
+# api-verbum
