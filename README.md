@@ -19,7 +19,10 @@ npm install
    cp .env.example .env
    ```
 2. No painel da [Neon](https://neon.tech), copie a **connection string** do seu projeto/banco e cole em `DATABASE_URL` (mantenha `?sslmode=require` no final).
-3. Ajuste `JWT_SECRET`, `PORT` e `BASE_URL` se quiser.
+3. No painel da [Neon](https://neon.tech), aba **Connect**, ligue o toggle **"Connection pooling"** e copie essa URL (host termina em `-pooler`) pra `DATABASE_URL`. Copie também a versão sem pooling pra `DIRECT_URL` (mantenha `?sslmode=require` em ambas).
+4. Ajuste `JWT_SECRET`, `PORT` e `BASE_URL` se quiser.
+
+> ⚠️ **Se aparecer `Error in PostgreSQL connection: Error { kind: Closed, cause: None }`**: é a Neon derrubando uma conexão direta ociosa (o compute dela hiberna sozinho após alguns minutos sem uso — normal no plano free). A correção é usar a URL **com pooling** (`-pooler`) em `DATABASE_URL`, como acima — o pgbouncer da Neon reabre a conexão sozinho a cada request. `DIRECT_URL` continua sem pooling porque `prisma migrate`/`prisma studio` não funcionam através do pgbouncer.
 
 ## 🗄️ Banco de dados (Prisma + Neon)
 

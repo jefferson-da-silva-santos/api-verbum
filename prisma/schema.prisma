@@ -6,8 +6,16 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // DATABASE_URL: a connection string com POOLING (pgbouncer) da Neon.
+  // Usada em runtime (o app inteiro). Evita o erro
+  // "Error in PostgreSQL connection: Error { kind: Closed, cause: None }",
+  // que acontece quando o compute da Neon hiberna e derruba uma conexão
+  // direta que o Prisma estava segurando.
+  url       = env("DATABASE_URL")
+  // DIRECT_URL: a connection string SEM pooling. Só é usada pelo `prisma migrate`
+  // e `prisma studio` (o pgbouncer não suporta os comandos que migrations usam).
+  directUrl = env("DIRECT_URL")
 }
 
 // ── Módulo: Perguntas & Respostas ──────────────────────────────────
