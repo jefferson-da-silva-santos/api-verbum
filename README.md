@@ -65,7 +65,7 @@ A API roda na Vercel como função serverless. A estrutura já está pronta:
 
 - **`api/index.js`** é o entrypoint que a Vercel executa — exporta o app do Express direto, sem `app.listen()` (quem cuida do ciclo de vida da requisição é a própria Vercel).
 - **`index.js`** (raiz) continua existindo só para rodar localmente com `npm run dev`/`npm start` (servidor tradicional, com `app.listen()`).
-- **`vercel.json`** redireciona todas as rotas (`/health`, `/docs`, `/api/v1/...`) para essa mesma função.
+- **`vercel.json`** redireciona `/health`, `/docs` e `/api/v1/...` pra essa função. `/admin/*` é **excluído** do redirecionamento de propósito — esses arquivos (`public/admin/`) são servidos direto como estático pela própria Vercel (mais rápido, sem depender do bundle da função).
 
 ### Passo a passo
 
@@ -81,7 +81,7 @@ A API roda na Vercel como função serverless. A estrutura já está pronta:
    ```bash
    npx prisma migrate deploy
    ```
-4. Deploy. O `postinstall` do `package.json` roda `prisma generate` automaticamente a cada deploy — não precisa configurar Build Command manual. O painel admin (`public/admin/`) vai junto no bundle da função graças ao `includeFiles` do `vercel.json` — não precisa de passo extra.
+4. Deploy. O `postinstall` do `package.json` roda `prisma generate` automaticamente a cada deploy — não precisa configurar Build Command manual. O painel admin (`public/admin/`) é servido como arquivo estático pela própria Vercel (ver nota sobre `vercel.json` acima) — também não precisa de passo extra.
 
 ### Limitações a ter em mente
 
