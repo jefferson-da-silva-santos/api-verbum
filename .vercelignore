@@ -1,0 +1,8 @@
+# Usados só localmente (seed manual do banco) — não fazem parte do runtime da API.
+data/
+test/
+coverage/
+
+# Documentação e controle de versão.
+README.md
+.git/

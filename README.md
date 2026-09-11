@@ -59,7 +59,38 @@ npm test
 
 ---
 
+## ☁️ Deploy na Vercel
+
+A API roda na Vercel como função serverless. A estrutura já está pronta:
+
+- **`api/index.js`** é o entrypoint que a Vercel executa — exporta o app do Express direto, sem `app.listen()` (quem cuida do ciclo de vida da requisição é a própria Vercel).
+- **`index.js`** (raiz) continua existindo só para rodar localmente com `npm run dev`/`npm start` (servidor tradicional, com `app.listen()`).
+- **`vercel.json`** redireciona todas as rotas (`/health`, `/docs`, `/api/v1/...`) para essa mesma função.
+
+### Passo a passo
+
+1. Suba o repositório no GitHub/GitLab/Bitbucket e importe o projeto na Vercel (ou rode `vercel` pela CLI a partir desta pasta).
+2. Em **Project Settings → Environment Variables**, cadastre (mesmas chaves do `.env.example`):
+   - `DATABASE_URL` — connection string da Neon **com pooling** (host termina em `-pooler`). Essencial: sem pooling, funções serverless esgotam as conexões do Postgres rapidinho, porque cada invocação pode abrir uma conexão nova.
+   - `DIRECT_URL` — connection string da Neon **sem pooling** (usada só por `prisma migrate`, que você roda localmente ou em CI, não na Vercel).
+   - `JWT_SECRET`
+   - `BASE_URL` (opcional, padrão `/api/v1`)
+   - `NODE_ENV=production`
+3. Rode as migrations contra o banco de produção **de fora da Vercel** (localhost ou CI), usando a `DIRECT_URL`:
+   ```bash
+   npx prisma migrate deploy
+   ```
+4. Deploy. O `postinstall` do `package.json` roda `prisma generate` automaticamente a cada deploy — não precisa configurar Build Command manual.
+
+### Limitações a ter em mente
+
+- **Rate limit por instância**: o `express-rate-limit` guarda os contadores em memória. Em serverless, cada instância "quente" da função tem sua própria memória — sob alta concorrência, o limite de 55 req/15min é por instância, não global. Funciona bem como salvaguarda básica; se precisar de um limite realmente global, dá pra trocar o store por Redis (ex: Upstash) depois.
+- **Cold start**: a primeira requisição depois de um tempo parado pode demorar um pouco mais (Prisma conectando pela primeira vez + a Neon "acordando" o compute, se estiver hibernado).
+
+---
+
 ## 📂 Estrutura de diretórios
+
 
 | Diretório | Descrição |
 | :--- | :--- |
@@ -74,12 +105,14 @@ npm test
 | `src/utils` | `ApiError`, `logger` (winston), `cache` (node-cache), `validations` (Joi), `constant` |
 | `test/` | Testes (Jest + Supertest) |
 | `app.js` | Monta o Express (middlewares globais, Swagger, rotas, error handler) |
-| `index.js` | Ponto de entrada: conecta no banco, injeta os repositórios, sobe o servidor |
+| `src/server.js` | Monta os repositórios (DI) e devolve o app pronto — usado por `index.js` e por `api/index.js` |
+| `index.js` | Entrypoint do servidor tradicional (local): conecta no banco, sobe o app com `app.listen()` |
+| `api/index.js` | Entrypoint serverless da **Vercel**: exporta o app direto, sem `app.listen()` |
 
 ### 🧠 Injeção de dependência
 
 ```javascript
-// index.js
+// src/server.js
 const perguntaRepository = new PerguntaRepository(prisma);
 const app = createApp({ perguntaRepository }); // injetado até as rotas
 ```
@@ -233,7 +266,7 @@ Siga o mesmo caminho do módulo de perguntas:
    ```javascript
    router.use('/novo', novoRoutes(repositories.novoRepository));
    ```
-   E injete o repositório em `index.js` (raiz), junto de `perguntaRepository`.
+   E injete o repositório em `src/server.js`, junto de `perguntaRepository`.
 
 ---
 

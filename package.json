@@ -4,10 +4,14 @@
   "description": "API do app Verbum — arquitetura baseada no framework Sotov (Factory + Injeção de Dependência), Express e Prisma (Neon PostgreSQL). Módulo inicial: Perguntas & Respostas bíblicas.",
   "type": "module",
   "main": "index.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
     "build": "prisma generate",
+    "postinstall": "prisma generate",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
