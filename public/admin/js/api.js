@@ -21,7 +21,7 @@ export function isAuthenticated() {
 
 export function logout() {
   clearToken();
-  window.location.href = './index.html';
+  window.location.href = '/admin/index.html';
 }
 
 // path já vem com a barra inicial, ex: apiFetch('/admin/perguntas?status=PENDENTE')
@@ -39,8 +39,8 @@ export async function apiFetch(path, options = {}) {
 
   if (res.status === 401) {
     clearToken();
-    const jaEstaNoLogin = /\/admin\/(index\.html)?$/.test(window.location.pathname);
-    if (!jaEstaNoLogin) window.location.href = './index.html';
+    const jaEstaNoLogin = /\/admin\/?(index\.html)?$/.test(window.location.pathname);
+    if (!jaEstaNoLogin) window.location.href = '/admin/index.html';
     throw new Error('Sessão expirada. Faça login novamente.');
   }
 

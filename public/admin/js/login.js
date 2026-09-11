@@ -1,7 +1,7 @@
 import { apiFetch, setToken, isAuthenticated } from './api.js';
 
 if (isAuthenticated()) {
-  window.location.href = './dashboard.html';
+  window.location.href = '/admin/dashboard.html';
 }
 
 const form = document.getElementById('login-form');
@@ -23,7 +23,7 @@ form.addEventListener('submit', async (event) => {
       body: JSON.stringify({ email, senha }),
     });
     setToken(data.token);
-    window.location.href = './dashboard.html';
+    window.location.href = '/admin/dashboard.html';
   } catch (err) {
     erroEl.textContent = err.message || 'Não foi possível entrar.';
     btn.disabled = false;
