@@ -20,13 +20,15 @@ datasource db {
 
 // ── Módulo: Perguntas & Respostas ──────────────────────────────────
 
-// PENDENTE   → enviada por um usuário do app, aguardando revisão externa (fora desta API)
+// PENDENTE   → enviada por um usuário do app, aguardando revisão do admin
 // PUBLICADA  → aprovada e visível no app (tem resposta)
 // REJEITADA  → descartada na revisão; nunca aparece no app
+// ARQUIVADA  → separada pelo admin para responder depois; não aparece no app
 enum PerguntaStatus {
   PENDENTE
   PUBLICADA
   REJEITADA
+  ARQUIVADA
 }
 
 model Pergunta {

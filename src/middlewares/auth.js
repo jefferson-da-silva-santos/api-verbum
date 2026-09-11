@@ -1,9 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { ApiError } from '../utils/error.js';
 
-// Middleware de autenticação JWT. Ainda não está aplicado nas rotas de escrita
-// deste módulo (não há um módulo de usuários/login ainda), mas já fica pronto
-// para quando esse módulo existir: basta importar `auth` na rota desejada.
+// Middleware de autenticação JWT. Usado pelas rotas de escrita de /perguntas
+// (POST, PUT, DELETE) e por tudo em /admin (exceto o login) — ver
+// routes/perguntas.routes.js e routes/admin.routes.js.
 export function auth(req, res, next) {
   try {
     const header = req.headers.authorization;

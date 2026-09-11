@@ -74,13 +74,14 @@ A API roda na Vercel como função serverless. A estrutura já está pronta:
    - `DATABASE_URL` — connection string da Neon **com pooling** (host termina em `-pooler`). Essencial: sem pooling, funções serverless esgotam as conexões do Postgres rapidinho, porque cada invocação pode abrir uma conexão nova.
    - `DIRECT_URL` — connection string da Neon **sem pooling** (usada só por `prisma migrate`, que você roda localmente ou em CI, não na Vercel).
    - `JWT_SECRET`
+   - `ADMIN_EMAIL` e `ADMIN_PASSWORD_HASH` — login do [painel admin](#-painel-admin) (`/admin`). Gere o hash com `npm run admin:hash "sua-senha"`.
    - `BASE_URL` (opcional, padrão `/api/v1`)
    - `NODE_ENV=production`
 3. Rode as migrations contra o banco de produção **de fora da Vercel** (localhost ou CI), usando a `DIRECT_URL`:
    ```bash
    npx prisma migrate deploy
    ```
-4. Deploy. O `postinstall` do `package.json` roda `prisma generate` automaticamente a cada deploy — não precisa configurar Build Command manual.
+4. Deploy. O `postinstall` do `package.json` roda `prisma generate` automaticamente a cada deploy — não precisa configurar Build Command manual. O painel admin (`public/admin/`) vai junto no bundle da função graças ao `includeFiles` do `vercel.json` — não precisa de passo extra.
 
 ### Limitações a ter em mente
 
@@ -96,11 +97,13 @@ A API roda na Vercel como função serverless. A estrutura já está pronta:
 | :--- | :--- |
 | `prisma/` | `schema.prisma` (models) e `seed.js` (importação do JSON) |
 | `data/` | JSON de origem usado pelo seed |
-| `src/config` | Conexão com o banco (`database.js`) e Swagger |
+| `public/admin/` | Painel admin — HTML/CSS/JS puro, servido pelo Express em `/admin` |
+| `scripts/` | `gerar-hash-senha.js` — CLI pra gerar o hash bcrypt da senha do admin |
+| `src/config` | Conexão com o banco (`database.js`), credenciais do admin (`admin.js`) e Swagger |
 | `src/controllers` | `GatewayController` — padroniza toda resposta HTTP |
 | `src/middlewares` | `auth` (JWT), `error` (handler global), `limiter` (rate limit) |
 | `src/repositories` | `AbstractRepository` (CRUD genérico via Prisma) + repositórios de cada módulo |
-| `src/services` | `AbstractService` + lógica de negócio de cada módulo (ex: `services/pergunta`) |
+| `src/services` | `AbstractService` + lógica de negócio de cada módulo (ex: `services/pergunta`, `services/admin`) |
 | `src/routes` | Um arquivo de rotas por módulo + `index.js` agregador |
 | `src/utils` | `ApiError`, `logger` (winston), `cache` (node-cache), `validations` (Joi), `constant` |
 | `test/` | Testes (Jest + Supertest) |
@@ -186,17 +189,19 @@ curl "http://localhost:3000/api/v1/reacoes/ranking/duvidas"
 
 Prefixo padrão: `/api/v1` (configurável via `BASE_URL` no `.env`)
 
-Toda pergunta tem um `status`: **PENDENTE** (enviada pelo app, aguardando revisão — não aparece pra ninguém), **PUBLICADA** (aprovada, visível no app) ou **REJEITADA** (descartada). As rotas públicas (`GET /perguntas`, `GET /perguntas/:id`, comentários e reações) só enxergam perguntas `PUBLICADA`. A revisão (aprovar, responder, rejeitar) acontece **fora desta API**, em outro projeto, que atualiza o registro via `PUT /perguntas/:id` (mandando `resposta`, `referencias` e `status: "PUBLICADA"`, por exemplo).
+Toda pergunta tem um `status`: **PENDENTE** (enviada pelo app, aguardando revisão — não aparece pra ninguém), **PUBLICADA** (aprovada, visível no app), **ARQUIVADA** (separada pelo admin pra responder depois — também não aparece no app) ou **REJEITADA** (descartada, status legado — hoje "descartar" no painel exclui de verdade). As rotas públicas (`GET /perguntas`, `GET /perguntas/:id`, comentários e reações) só enxergam perguntas `PUBLICADA`. A moderação (aceitar, responder, arquivar, excluir) acontece pelo [painel admin](#-painel-admin) deste projeto, em `/admin`.
 
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
 | `POST` | `/perguntas/sugestoes` | **envio público** — usuário manda só `{ pergunta, autorPergunta? }`; nasce `PENDENTE`, sem resposta |
-| `POST` | `/perguntas` | cadastro completo (admin/importação) — pergunta + resposta + referências + categoria + palavrasChave, nasce `PUBLICADA` por padrão |
+| `POST` | `/perguntas` | 🔒 cadastro completo (admin/importação) — pergunta + resposta + referências + categoria + palavrasChave, nasce `PUBLICADA` por padrão |
 | `GET` | `/perguntas` | lista/busca (só `PUBLICADA`) — `?q=`, `?bookSlug=`, `?categoria=`, `?keyword=`, `?identificador=` (perguntas já lidas por ele vão pro final), `?page=`, `?limit=`, mais recentes primeiro |
 | `GET` | `/perguntas/categorias` | categorias em uso, com contagem — pra montar filtros na UI |
 | `GET` | `/perguntas/:id` | busca uma pergunta (só `PUBLICADA`). Com `?identificador=`, inclui `favoritada`/`lida` |
-| `PUT` | `/perguntas/:id` | atualiza pergunta/resposta/categoria/palavrasChave/referencias/**status** — é assim que a revisão externa aprova/rejeita |
-| `DELETE` | `/perguntas/:id` | remove uma pergunta |
+| `PUT` | `/perguntas/:id` | 🔒 atualiza pergunta/resposta/categoria/palavrasChave/referencias/**status** — é isso que o painel admin usa pra "responder" (muda status pra `PUBLICADA`) |
+| `DELETE` | `/perguntas/:id` | 🔒 remove uma pergunta |
+
+🔒 = requer `Authorization: Bearer <token>` (ver [Painel Admin](#-painel-admin)).
 
 ### Exemplo — filtrar por categoria e palavra-chave
 
@@ -215,11 +220,12 @@ curl -X POST http://localhost:3000/api/v1/perguntas/sugestoes \
 # -> { "success": true, "data": { "id": 310, "status": "PENDENTE", "resposta": null, ... } }
 ```
 
-### Exemplo — criar
+### Exemplo — criar (autenticado)
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/perguntas \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SEU_TOKEN" \
   -d '{
     "pergunta": "O que é a graça de Deus?",
     "resposta": "A graça é o favor imerecido de Deus para com o homem (Ef 2.8,9).",
@@ -251,6 +257,46 @@ Erros seguem o mesmo padrão, trocando `data`/`meta` por `message`:
 ```json
 { "success": false, "message": "Pergunta não encontrada." }
 ```
+
+---
+
+## 🔐 Painel Admin
+
+Painel web (HTML/CSS/JS puro, sem build) em `/admin` — login + moderação de perguntas. Pensado pra fila de revisão: quem perguntou primeiro é respondido primeiro (lista ordenada da mais antiga pra mais nova).
+
+### Login
+
+Ainda não existe tabela de usuários no banco — o login é de um **admin único**, configurado via variável de ambiente (ver `.env.example`):
+
+```bash
+npm run admin:hash "sua-senha-aqui"
+# cole o hash impresso em ADMIN_PASSWORD_HASH no .env, e defina ADMIN_EMAIL
+```
+
+`POST /api/v1/admin/login` com `{ email, senha }` devolve `{ token, expiresIn }` (token válido por 12h). O painel guarda o token no `localStorage` do navegador e manda em toda chamada como `Authorization: Bearer <token>`.
+
+### O que dá pra fazer no painel
+
+- **Pendentes** (aba padrão) — perguntas enviadas pelo app, aguardando revisão.
+- **Responder** — abre um editor com: a pergunta (só leitura), campo de categoria, palavras-chave (chips), um textarea grande pra resposta com contador de caracteres e uma aba de **pré-visualização** que mostra exatamente como vai renderizar no app (mesma fonte/tamanho/espaçamento que o app usa) — importante porque o app exibe a resposta como texto simples, sem negrito/itálico/markdown, então o editor não introduz nenhuma marcação que o app não saiba renderizar.
+- **Referências bíblicas** — seletor de livro (os 66, com os mesmos `bookSlug` que o app usa — extraídos direto de `src/constants/bible.ts` do app, pra garantir que abre o versículo certo) → capítulo → versículo (opcional) → sugestão automática do texto de exibição (editável, pra casos como intervalos: "Mt 6.16-18").
+- **Salvar e publicar** — grava tudo e muda o status pra `PUBLICADA` (some da fila, aparece no app).
+- **Salvar e arquivar** — grava o que já foi escrito mas mantém `ARQUIVADA`, pra continuar depois sem perder o progresso.
+- **Arquivar** (lista ou em lote) — separa pra responder depois, sem responder agora.
+- **Excluir** (lista ou em lote) — descarta de verdade (delete físico, com modal de confirmação antes).
+- **Seleção múltipla** — checkbox por pergunta + "selecionar todas nesta página", pra arquivar/excluir várias de uma vez. Responder continua sendo uma de cada vez (cada resposta é única).
+- Abas **Arquivadas**, **Publicadas**, **Rejeitadas** e **Todas**, mais busca por texto.
+
+### Rotas do módulo
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/admin/login` | público — `{ email, senha }` → `{ token }` |
+| `GET` | `/admin/perguntas` | 🔒 lista TODOS os status (painel) — `?status=`, `?q=`, `?page=`, `?limit=` |
+| `PATCH` | `/admin/perguntas/arquivar` | 🔒 arquiva em lote — `{ ids: number[] }` |
+| `DELETE` | `/admin/perguntas` | 🔒 exclui em lote — `{ ids: number[] }` |
+
+"Responder" continua sendo o `PUT /perguntas/:id` de sempre (ver seção acima) — o painel só chama ele passando `resposta`, `categoria`, `palavrasChave`, `referencias` e `status`.
 
 ---
 

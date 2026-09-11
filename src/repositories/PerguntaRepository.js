@@ -97,6 +97,48 @@ export default class PerguntaRepository extends AbstractRepository {
     return { ...pergunta, favoritada: !!favorito, lida: !!leitura };
   }
 
+  // ── Admin ──────────────────────────────────────────────────────────
+  // Ao contrário de `search` (pública, só vê PUBLICADA), esta enxerga todos os
+  // status — usada pelo painel de moderação. Sem `status`, lista todas.
+  // Ordena da mais antiga pra mais nova (fila: quem perguntou primeiro é
+  // respondido primeiro).
+  async listAdmin({ status, q, page, limit }) {
+    const where = {};
+    if (status) where.status = status;
+    if (q) {
+      where.OR = [
+        { pergunta: { contains: q, mode: 'insensitive' } },
+        { resposta: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const total = await this.model.count({ where });
+    const skip = (page - 1) * limit;
+    const data = await this.model.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+      include: { referencias: true },
+    });
+
+    return { data, total };
+  }
+
+  // Muda o status de várias perguntas de uma vez (ex: arquivar as selecionadas
+  // na lista). Retorna quantas foram afetadas.
+  async updateManyStatus(ids, status) {
+    return this.model.updateMany({
+      where: { id: { in: ids.map(Number) } },
+      data: { status },
+    });
+  }
+
+  // Exclui várias perguntas de uma vez (referências saem em cascata).
+  async deleteMany(ids) {
+    return this.model.deleteMany({ where: { id: { in: ids.map(Number) } } });
+  }
+
   // Todas as categorias em uso (só entre perguntas PUBLICADA), com contagem —
   // serve pra montar os chips de filtro por categoria na UI.
   async listCategorias() {

@@ -31,4 +31,10 @@ export const API_MESSAGES = {
   INVALID_ID: 'Id inválido.',
   VALIDATION_ERROR: 'Dados inválidos.',
   INTERNAL_ERROR: 'Erro interno do servidor.',
+
+  // Admin
+  ADMIN_LOGIN_INVALID: 'E-mail ou senha inválidos.',
+  ADMIN_LOGIN_NOT_CONFIGURED: 'Login de admin não configurado no servidor (ADMIN_EMAIL / ADMIN_PASSWORD_HASH ausentes).',
+  ADMIN_PERGUNTAS_ARCHIVED: 'Pergunta(s) arquivada(s) com sucesso.',
+  ADMIN_PERGUNTAS_DELETED: 'Pergunta(s) excluída(s) com sucesso.',
 };

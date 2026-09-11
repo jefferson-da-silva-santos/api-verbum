@@ -7,7 +7,7 @@ import { GetCategoriasService } from '../services/pergunta/GetCategoriasService.
 import { GetPerguntaService } from '../services/pergunta/GetPerguntaService.js';
 import { UpdatePerguntaService } from '../services/pergunta/UpdatePerguntaService.js';
 import { DeletePerguntaService } from '../services/pergunta/DeletePerguntaService.js';
-// import { auth } from '../middlewares/auth.js'; // pronto para quando existir módulo de usuários/login
+import { auth } from '../middlewares/auth.js'; // agora existe login (ver routes/admin.routes.js)
 
 // Módulo de rotas recebe o repositório por injeção de dependência (padrão Sotov).
 export default function perguntasRoutes(perguntaRepository) {
@@ -27,10 +27,10 @@ export default function perguntasRoutes(perguntaRepository) {
    * @openapi
    * /perguntas:
    *   post:
-   *     summary: Cadastro completo (admin/importação) — pergunta, resposta e referências, já publicado por padrão.
+   *     summary: Cadastro completo (admin/importação) — pergunta, resposta e referências, já publicado por padrão. Requer login de admin.
    *     tags: [Perguntas]
    */
-  router.post('/', (req, res, next) =>
+  router.post('/', auth, (req, res, next) =>
     new GatewayController(new CreatePerguntaService(perguntaRepository)).handle(req, res, next));
 
   /**
@@ -67,20 +67,20 @@ export default function perguntasRoutes(perguntaRepository) {
    * @openapi
    * /perguntas/{id}:
    *   put:
-   *     summary: Atualiza pergunta/resposta/referencias. Se "referencias" vier no corpo, substitui todas.
+   *     summary: Atualiza pergunta/resposta/referencias (é o que o painel admin usa pra "responder" — muda status pra PUBLICADA). Se "referencias" vier no corpo, substitui todas. Requer login de admin.
    *     tags: [Perguntas]
    */
-  router.put('/:id', (req, res, next) =>
+  router.put('/:id', auth, (req, res, next) =>
     new GatewayController(new UpdatePerguntaService(perguntaRepository)).handle(req, res, next));
 
   /**
    * @openapi
    * /perguntas/{id}:
    *   delete:
-   *     summary: Remove uma pergunta (e suas referências, em cascata).
+   *     summary: Remove uma pergunta (e suas referências, em cascata). Requer login de admin.
    *     tags: [Perguntas]
    */
-  router.delete('/:id', (req, res, next) =>
+  router.delete('/:id', auth, (req, res, next) =>
     new GatewayController(new DeletePerguntaService(perguntaRepository)).handle(req, res, next));
 
   return router;

@@ -36,8 +36,8 @@ export const schemaUpdatePergunta = Joi.object({
   palavrasChave: Joi.array().items(Joi.string().trim().max(40)),
   // Se "referencias" vier no corpo, TODAS as referências antigas são substituídas pelas novas.
   referencias: Joi.array().items(referenciaSchema),
-  // Usado pela revisão (fora desta API) para aprovar/rejeitar uma pergunta pendente.
-  status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA'),
+  // Usado pela revisão do admin para aprovar/rejeitar/arquivar uma pergunta.
+  status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA', 'ARQUIVADA'),
 }).min(1).messages({ 'object.min': 'Envie ao menos um campo para atualizar (pergunta, resposta, categoria, palavrasChave, referencias ou status).' });
 
 export const schemaIdParam = Joi.object({
@@ -100,4 +100,29 @@ export const schemaGetPerguntaQuery = Joi.object({
 export const schemaIdentificadorBody = Joi.object({
   identificador: Joi.string().trim().min(1).max(120).required()
     .messages({ 'any.required': 'Envie um "identificador" (id do dispositivo/sessão).' }),
+});
+
+// ── Admin ────────────────────────────────────────────────────────
+
+export const schemaAdminLogin = Joi.object({
+  email: Joi.string().trim().lowercase().email().required(),
+  senha: Joi.string().min(1).required(),
+});
+
+// Listagem do painel admin: enxerga TODOS os status (ao contrário de
+// schemaListQuery, que é só pra busca pública e só vê PUBLICADA).
+export const schemaAdminListQuery = Joi.object({
+  status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA', 'ARQUIVADA').optional(),
+  q: Joi.string().trim().allow('').optional(),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+});
+
+// Ações em lote (arquivar/excluir várias de uma vez, selecionadas na lista).
+export const schemaBulkIds = Joi.object({
+  ids: Joi.array().items(Joi.number().integer().min(0)).min(1).required()
+    .messages({
+      'array.min': 'Selecione ao menos uma pergunta.',
+      'any.required': 'Envie a lista de ids ("ids").',
+    }),
 });
