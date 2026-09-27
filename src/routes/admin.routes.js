@@ -4,6 +4,7 @@ import { LoginAdminService } from '../services/admin/LoginAdminService.js';
 import { ListPerguntasAdminService } from '../services/admin/ListPerguntasAdminService.js';
 import { ArquivarPerguntasService } from '../services/admin/ArquivarPerguntasService.js';
 import { DeletarPerguntasService } from '../services/admin/DeletarPerguntasService.js';
+import { GetPerguntaAdminService } from '../services/admin/GetPerguntaAdminService.js';
 import { auth } from '../middlewares/auth.js';
 
 // Rotas do painel admin. Responder/aceitar uma pergunta pendente continua
@@ -30,11 +31,21 @@ export default function adminRoutes(perguntaRepository) {
    * @openapi
    * /admin/perguntas:
    *   get:
-   *     summary: Lista perguntas de TODOS os status (painel de moderação). Suporta ?status=, ?q=, ?page=, ?limit=.
+   *     summary: Lista perguntas de TODOS os status (painel de moderação e biblioteca). Suporta ?status=, ?q=, ?categoria=, ?ordem=antigas|recentes, ?page=, ?limit=.
    *     tags: [Admin]
    */
   router.get('/perguntas', (req, res, next) =>
     new GatewayController(new ListPerguntasAdminService(perguntaRepository)).handle(req, res, next));
+
+  /**
+   * @openapi
+   * /admin/perguntas/{id}:
+   *   get:
+   *     summary: Detalhe de uma pergunta (qualquer status) com referências, contagens de engajamento, reações por tipo e últimos comentários.
+   *     tags: [Admin]
+   */
+  router.get('/perguntas/:id', (req, res, next) =>
+    new GatewayController(new GetPerguntaAdminService(perguntaRepository)).handle(req, res, next));
 
   /**
    * @openapi

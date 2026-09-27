@@ -21,6 +21,10 @@ const state = {
   items: [],
   selected: new Set(),
   editingPergunta: null,
+  // 'responder' (PUT numa pergunta existente) ou 'criar' (POST de uma nova)
+  modo: 'responder',
+  // aberto via ?nova=1 (tela Perguntas & Respostas): depois de salvar, vai pro detalhe
+  irParaDetalheAoSalvar: false,
   referencias: [],
   palavrasChave: [],
 };
@@ -46,6 +50,12 @@ const el = {
 
   panelOverlay: document.getElementById('panel-overlay'),
   sidePanel: document.getElementById('side-panel'),
+  panelTitle: document.getElementById('panel-title'),
+  panelQuote: document.getElementById('panel-pergunta-quote'),
+  panelCriarCampos: document.getElementById('panel-criar-campos'),
+  panelPerguntaInput: document.getElementById('panel-pergunta-input'),
+  panelAutor: document.getElementById('panel-autor'),
+  novaPerguntaBtn: document.getElementById('nova-pergunta-btn'),
   panelCloseBtn: document.getElementById('panel-close-btn'),
   panelPerguntaTexto: document.getElementById('panel-pergunta-texto'),
   panelPerguntaMeta: document.getElementById('panel-pergunta-meta'),
@@ -326,8 +336,32 @@ function updatePreview() {
   el.panelContador.textContent = `${n} caractere${n === 1 ? '' : 's'}`;
 }
 
+function setModo(modo) {
+  state.modo = modo;
+  const criando = modo === 'criar';
+  el.panelTitle.textContent = criando ? 'Nova pergunta' : 'Responder pergunta';
+  el.panelQuote.style.display = criando ? 'none' : 'block';
+  el.panelCriarCampos.style.display = criando ? 'block' : 'none';
+}
+
+function resetCamposComuns() {
+  el.refCapitulo.value = '';
+  el.refVersiculo.value = '';
+  el.refDisplay.value = '';
+  renderRefList();
+  renderPalavrasChave();
+  updatePreview();
+  setPreviewMode('editar');
+}
+
+function abrirPainel() {
+  el.panelOverlay.classList.add('visible');
+  el.sidePanel.classList.add('visible');
+}
+
 function openEditor(pergunta) {
   if (!pergunta) return;
+  setModo('responder');
   state.editingPergunta = pergunta;
   state.referencias = (pergunta.referencias || []).map((r) => ({
     display: r.display, bookSlug: r.bookSlug, chapter: r.chapter, verse: r.verse ?? undefined,
@@ -339,23 +373,42 @@ function openEditor(pergunta) {
   el.panelCategoria.value = pergunta.categoria || '';
   el.panelResposta.value = pergunta.resposta || '';
 
-  el.refCapitulo.value = '';
-  el.refVersiculo.value = '';
-  el.refDisplay.value = '';
-
-  renderRefList();
-  renderPalavrasChave();
-  updatePreview();
-  setPreviewMode('editar');
-
-  el.panelOverlay.classList.add('visible');
-  el.sidePanel.classList.add('visible');
+  resetCamposComuns();
+  abrirPainel();
 }
 
-function closeEditor() {
+function openCreator() {
+  setModo('criar');
+  state.editingPergunta = null;
+  state.referencias = [];
+  state.palavrasChave = [];
+
+  el.panelPerguntaInput.value = '';
+  el.panelAutor.value = '';
+  el.panelCategoria.value = '';
+  el.panelResposta.value = '';
+
+  resetCamposComuns();
+  abrirPainel();
+  setTimeout(() => el.panelPerguntaInput.focus(), 220); // depois da animação do painel
+}
+
+function temRascunhoNovo() {
+  return state.modo === 'criar' && Boolean(
+    el.panelPerguntaInput.value.trim() || el.panelResposta.value.trim() || state.referencias.length,
+  );
+}
+
+async function closeEditor({ force = false } = {}) {
+  // não perder uma pergunta nova digitada por um clique fora do painel
+  if (!force && temRascunhoNovo()) {
+    const ok = await confirmAction('Descartar nova pergunta?', 'O que você digitou ainda não foi salvo e será perdido.');
+    if (!ok) return;
+  }
   el.panelOverlay.classList.remove('visible');
   el.sidePanel.classList.remove('visible');
   state.editingPergunta = null;
+  state.irParaDetalheAoSalvar = false;
 }
 
 function setPreviewMode(mode) {
@@ -366,6 +419,15 @@ function setPreviewMode(mode) {
 }
 
 async function salvarResposta(novoStatus) {
+  const criando = state.modo === 'criar';
+  const pergunta = el.panelPerguntaInput.value.trim();
+
+  if (criando && pergunta.length < 3) {
+    showToast('Escreva a pergunta (mínimo de 3 caracteres).', 'error');
+    el.panelPerguntaInput.focus();
+    return;
+  }
+
   const resposta = el.panelResposta.value.trim();
   if (!resposta) {
     showToast('Escreva uma resposta antes de salvar.', 'error');
@@ -386,9 +448,24 @@ async function salvarResposta(novoStatus) {
   btns.forEach((b) => { b.disabled = true; });
 
   try {
-    await apiFetch(`/perguntas/${state.editingPergunta.id}`, { method: 'PUT', body: JSON.stringify(payload) });
-    showToast(novoStatus === 'PUBLICADA' ? 'Pergunta publicada!' : 'Salvo e arquivado para depois.');
-    closeEditor();
+    if (criando) {
+      const { data } = await apiFetch('/perguntas', {
+        method: 'POST',
+        body: JSON.stringify({ ...payload, pergunta, autorPergunta: el.panelAutor.value.trim() || null }),
+      });
+
+      if (state.irParaDetalheAoSalvar) {
+        window.location.href = `/admin/pergunta.html?id=${data.id}`;
+        return;
+      }
+      showToast(novoStatus === 'PUBLICADA'
+        ? `Pergunta #${data.id} criada e publicada!`
+        : `Pergunta #${data.id} criada e arquivada para depois.`);
+    } else {
+      await apiFetch(`/perguntas/${state.editingPergunta.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast(novoStatus === 'PUBLICADA' ? 'Pergunta publicada!' : 'Salvo e arquivado para depois.');
+    }
+    closeEditor({ force: true });
     await loadList();
   } catch (err) {
     showToast(err.message || 'Erro ao salvar.', 'error');
@@ -425,8 +502,9 @@ el.bulkExcluirBtn.addEventListener('click', () => excluirIds([...state.selected]
 el.prevPageBtn.addEventListener('click', () => { if (state.page > 1) { state.page -= 1; loadList(); } });
 el.nextPageBtn.addEventListener('click', () => { if (state.page < state.totalPages) { state.page += 1; loadList(); } });
 
-el.panelCloseBtn.addEventListener('click', closeEditor);
-el.panelOverlay.addEventListener('click', closeEditor);
+el.panelCloseBtn.addEventListener('click', () => closeEditor());
+el.panelOverlay.addEventListener('click', () => closeEditor());
+el.novaPerguntaBtn.addEventListener('click', openCreator);
 
 el.previewToggleBtns.forEach((btn) => btn.addEventListener('click', () => setPreviewMode(btn.dataset.mode)));
 el.panelResposta.addEventListener('input', updatePreview);
@@ -481,6 +559,39 @@ el.panelPublicarBtn.addEventListener('click', () => salvarResposta('PUBLICADA'))
 
 // ── Início ──────────────────────────────────────────────────────────
 
+// Deep links vindos da tela Perguntas & Respostas:
+//   /admin/dashboard.html?editar=123 → abre o painel lateral nessa pergunta
+//   /admin/dashboard.html?nova=1     → abre o painel em modo "Nova pergunta"
+//                                      (ao salvar, vai direto pro detalhe dela)
+async function abrirEditorPorUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const limparUrl = (...chaves) => {
+    chaves.forEach((c) => params.delete(c));
+    const qs = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+  };
+
+  if (params.has('nova')) {
+    openCreator();
+    state.irParaDetalheAoSalvar = true;
+    limparUrl('nova');
+    return;
+  }
+
+  const id = Number(params.get('editar'));
+  if (!params.has('editar') || !Number.isInteger(id)) return;
+
+  try {
+    const { data } = await apiFetch(`/admin/perguntas/${id}`);
+    openEditor(data);
+  } catch (err) {
+    showToast(err.message || 'Não foi possível abrir a pergunta.', 'error');
+  } finally {
+    limparUrl('editar');
+  }
+}
+
 populateBookSelect();
 renderTabs();
 loadList();
+abrirEditorPorUrl();

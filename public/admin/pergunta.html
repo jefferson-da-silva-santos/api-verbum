@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Verbum Admin — Pergunta</title>
+  <link rel="stylesheet" href="/admin/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-brand">
+        <div class="mark">V</div>
+        <span class="brand-text">Verbum Admin</span>
+      </div>
+      <nav class="topnav" aria-label="Áreas do painel">
+        <a href="/admin/dashboard.html">Moderação</a>
+        <a href="/admin/perguntas.html" class="active">Perguntas &amp; Respostas</a>
+      </nav>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Sair</button>
+  </header>
+
+  <main class="container container-wide">
+    <a class="back-link" id="back-link" href="/admin/perguntas.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      Perguntas &amp; Respostas
+    </a>
+
+    <div id="detail-root">
+      <div class="loading-state">Carregando...</div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="/admin/js/pergunta.js"></script>
+</body>
+</html>

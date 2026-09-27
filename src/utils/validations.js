@@ -18,8 +18,11 @@ export const schemaCreatePergunta = Joi.object({
   categoria: Joi.string().trim().max(60).allow('', null).optional(),
   palavrasChave: Joi.array().items(Joi.string().trim().max(40)).default([]),
   referencias: Joi.array().items(referenciaSchema).default([]),
+  // Opcional: quem fez a pergunta (ex: recebida por WhatsApp e cadastrada pelo admin).
+  autorPergunta: Joi.string().trim().max(120).allow('', null).optional(),
   // Cadastro "completo" (admin/importação) já nasce publicado por padrão.
-  status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA').default('PUBLICADA'),
+  // ARQUIVADA = cadastrada pelo painel para revisar/publicar depois.
+  status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA', 'ARQUIVADA').default('PUBLICADA'),
 });
 
 // Envio público (dentro do app): o usuário manda só a pergunta. Não tem resposta
@@ -114,6 +117,9 @@ export const schemaAdminLogin = Joi.object({
 export const schemaAdminListQuery = Joi.object({
   status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA', 'ARQUIVADA').optional(),
   q: Joi.string().trim().allow('').optional(),
+  categoria: Joi.string().trim().max(60).allow('').optional(),
+  // 'antigas' (padrão, fila de moderação) ou 'recentes' (biblioteca).
+  ordem: Joi.string().valid('antigas', 'recentes').default('antigas'),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
 });

@@ -9,9 +9,15 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-brand">
-      <div class="mark">V</div>
-      Verbum Admin
+    <div class="topbar-left">
+      <div class="topbar-brand">
+        <div class="mark">V</div>
+        <span class="brand-text">Verbum Admin</span>
+      </div>
+      <nav class="topnav" aria-label="Áreas do painel">
+        <a href="/admin/dashboard.html" class="active" aria-current="page">Moderação</a>
+        <a href="/admin/perguntas.html">Perguntas &amp; Respostas</a>
+      </nav>
     </div>
     <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Sair</button>
   </header>
@@ -21,6 +27,7 @@
 
     <div class="toolbar">
       <input type="search" id="search-input" placeholder="Buscar por texto da pergunta ou resposta..." />
+      <button class="btn btn-primary" id="nova-pergunta-btn" type="button">+ Nova pergunta</button>
     </div>
 
     <div class="select-all-row">
@@ -50,13 +57,25 @@
   <div class="overlay" id="panel-overlay"></div>
   <aside class="side-panel" id="side-panel">
     <div class="side-panel-header">
-      <h2>Responder pergunta</h2>
+      <h2 id="panel-title">Responder pergunta</h2>
       <button class="btn btn-ghost btn-sm" id="panel-close-btn" type="button">Fechar</button>
     </div>
     <div class="side-panel-body">
-      <div class="question-quote">
+      <div class="question-quote" id="panel-pergunta-quote">
         <span id="panel-pergunta-texto"></span>
         <span class="who" id="panel-pergunta-meta"></span>
+      </div>
+
+      <!-- Só no modo "Nova pergunta" -->
+      <div id="panel-criar-campos" style="display: none;">
+        <div class="field">
+          <label for="panel-pergunta-input">Pergunta</label>
+          <textarea id="panel-pergunta-input" class="pergunta-input" rows="3" maxlength="500" placeholder="Ex: O que a Bíblia diz sobre o jejum?"></textarea>
+        </div>
+        <div class="field">
+          <label for="panel-autor">Quem perguntou <span class="optional">(opcional)</span></label>
+          <input id="panel-autor" type="text" maxlength="120" placeholder="Nome de quem fez a pergunta" />
+        </div>
       </div>
 
       <div class="field">

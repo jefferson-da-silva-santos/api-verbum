@@ -10,12 +10,13 @@ export default class PerguntaRepository extends AbstractRepository {
     this.prisma = prisma;
   }
 
-  async createWithReferencias({ id, pergunta, resposta, categoria, palavrasChave = [], referencias = [], status }) {
+  async createWithReferencias({ id, pergunta, resposta, categoria, palavrasChave = [], referencias = [], status, autorPergunta }) {
     return this.model.create({
       data: {
         ...(id !== undefined ? { id } : {}),
         pergunta,
         resposta,
+        autorPergunta: autorPergunta || null,
         categoria: categoria || null,
         palavrasChave,
         status,
@@ -102,9 +103,13 @@ export default class PerguntaRepository extends AbstractRepository {
   // status — usada pelo painel de moderação. Sem `status`, lista todas.
   // Ordena da mais antiga pra mais nova (fila: quem perguntou primeiro é
   // respondido primeiro).
-  async listAdmin({ status, q, page, limit }) {
+  //
+  // `categoria` e `ordem` são opcionais e servem à tela "Perguntas & Respostas"
+  // (biblioteca): ordem 'recentes' inverte a fila; 'antigas' é o padrão.
+  async listAdmin({ status, q, categoria, ordem = 'antigas', page, limit }) {
     const where = {};
     if (status) where.status = status;
+    if (categoria) where.categoria = { equals: categoria, mode: 'insensitive' };
     if (q) {
       where.OR = [
         { pergunta: { contains: q, mode: 'insensitive' } },
@@ -118,11 +123,39 @@ export default class PerguntaRepository extends AbstractRepository {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'asc' },
-      include: { referencias: true },
+      orderBy: [{ createdAt: ordem === 'recentes' ? 'desc' : 'asc' }, { id: 'asc' }],
+      include: {
+        referencias: true,
+        _count: { select: { comentarios: true, favoritos: true } },
+      },
     });
 
     return { data, total };
+  }
+
+  // Detalhe completo pro painel (qualquer status): referências, contagens de
+  // engajamento, reações separadas por tipo e os comentários mais recentes.
+  async getAdminDetalhe(id, { comentariosLimit = 20 } = {}) {
+    const perguntaId = Number(id);
+    const pergunta = await this.model.findUnique({
+      where: { id: perguntaId },
+      include: {
+        referencias: { orderBy: { id: 'asc' } },
+        comentarios: { orderBy: { createdAt: 'desc' }, take: comentariosLimit },
+        _count: { select: { comentarios: true, favoritos: true, leituras: true } },
+      },
+    });
+    if (!pergunta) return null;
+
+    const grupos = await this.prisma.reacao.groupBy({
+      by: ['tipo'],
+      where: { perguntaId },
+      _count: { tipo: true },
+    });
+    const reacoes = { ESCLARECIDA: 0, DUVIDA: 0 };
+    grupos.forEach((g) => { reacoes[g.tipo] = g._count.tipo; });
+
+    return { ...pergunta, reacoes };
   }
 
   // Muda o status de várias perguntas de uma vez (ex: arquivar as selecionadas
