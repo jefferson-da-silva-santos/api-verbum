@@ -481,6 +481,26 @@ el.panelPublicarBtn.addEventListener('click', () => salvarResposta('PUBLICADA'))
 
 // ── Início ──────────────────────────────────────────────────────────
 
+// Deep link vindo da tela de detalhe ("Editar resposta"):
+// /admin/dashboard.html?editar=123 abre o painel lateral direto nessa pergunta.
+async function abrirEditorPorUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const id = Number(params.get('editar'));
+  if (!params.has('editar') || !Number.isInteger(id)) return;
+
+  try {
+    const { data } = await apiFetch(`/admin/perguntas/${id}`);
+    openEditor(data);
+  } catch (err) {
+    showToast(err.message || 'Não foi possível abrir a pergunta.', 'error');
+  } finally {
+    params.delete('editar');
+    const qs = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+  }
+}
+
 populateBookSelect();
 renderTabs();
 loadList();
+abrirEditorPorUrl();

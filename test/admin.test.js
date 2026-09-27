@@ -47,6 +47,16 @@ const perguntaRepository = {
     banco = banco.filter((p) => !ids.includes(p.id));
     return { count: antes - banco.length };
   },
+  getAdminDetalhe: async (id) => {
+    const p = banco.find((x) => x.id === Number(id));
+    if (!p) return null;
+    return {
+      ...p,
+      comentarios: [],
+      _count: { comentarios: 0, favoritos: 0, leituras: 0 },
+      reacoes: { ESCLARECIDA: 0, DUVIDA: 0 },
+    };
+  },
   createWithReferencias: async () => { throw new Error('não usado neste teste'); },
 };
 
@@ -111,6 +121,48 @@ describe('GET /api/v1/admin/perguntas', () => {
   });
 });
 
+describe('GET /api/v1/admin/perguntas/:id', () => {
+  it('exige token', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/1');
+    expect(res.status).toBe(401);
+  });
+
+  it('devolve o detalhe de qualquer status (inclusive arquivada) com engajamento', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/2').set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(2);
+    expect(res.body.data.status).toBe('ARQUIVADA');
+    expect(res.body.data.reacoes).toEqual({ ESCLARECIDA: 0, DUVIDA: 0 });
+    expect(res.body.data._count.comentarios).toBe(0);
+  });
+
+  it('404 quando não existe', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/999').set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(404);
+  });
+
+  it('422 com id inválido', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/abc').set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(422);
+  });
+});
+
+describe('GET /api/v1/admin/perguntas — filtros da biblioteca', () => {
+  it('aceita ?ordem=recentes e ?categoria=', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/perguntas?ordem=recentes&categoria=Escatologia')
+      .set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('rejeita ordem inválida', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/perguntas?ordem=aleatoria')
+      .set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(422);
+  });
+});
+
 describe('PATCH /api/v1/admin/perguntas/arquivar', () => {
   it('arquiva em lote', async () => {
     const res = await request(app)
@@ -166,5 +218,16 @@ describe('rotas de escrita de /perguntas agora exigem token', () => {
       .send({ resposta: 'Sim, conforme Jo 11.25.', status: 'PUBLICADA' });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('PUBLICADA');
+  });
+});
+
+describe('rate limiter x painel admin', () => {
+  it('requisições com token de admin válido não consomem a cota (navegar pelo painel não bloqueia)', async () => {
+    const token = tokenValido();
+    for (let i = 0; i < 60; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await request(app).get('/api/v1/admin/perguntas/1').set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+    }
   });
 });

@@ -114,6 +114,9 @@ export const schemaAdminLogin = Joi.object({
 export const schemaAdminListQuery = Joi.object({
   status: Joi.string().valid('PENDENTE', 'PUBLICADA', 'REJEITADA', 'ARQUIVADA').optional(),
   q: Joi.string().trim().allow('').optional(),
+  categoria: Joi.string().trim().max(60).allow('').optional(),
+  // 'antigas' (padrão, fila de moderação) ou 'recentes' (biblioteca).
+  ordem: Joi.string().valid('antigas', 'recentes').default('antigas'),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
 });

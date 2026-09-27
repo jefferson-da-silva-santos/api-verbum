@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Verbum Admin — Perguntas &amp; Respostas</title>
+  <link rel="stylesheet" href="/admin/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-brand">
+        <div class="mark">V</div>
+        <span class="brand-text">Verbum Admin</span>
+      </div>
+      <nav class="topnav" aria-label="Áreas do painel">
+        <a href="/admin/dashboard.html">Moderação</a>
+        <a href="/admin/perguntas.html" class="active" aria-current="page">Perguntas &amp; Respostas</a>
+      </nav>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Sair</button>
+  </header>
+
+  <main class="container">
+    <div class="page-head">
+      <h1>Perguntas &amp; Respostas</h1>
+      <p id="page-subtitle">Tudo o que está no sistema — clique numa pergunta para ler a resposta completa.</p>
+    </div>
+
+    <div class="filters">
+      <label class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="search-input" placeholder="Buscar na pergunta ou na resposta..." aria-label="Buscar" />
+      </label>
+      <select id="categoria-select" aria-label="Categoria">
+        <option value="">Todas as categorias</option>
+      </select>
+      <select id="ordem-select" aria-label="Ordenação">
+        <option value="recentes">Mais recentes</option>
+        <option value="antigas">Mais antigas</option>
+      </select>
+    </div>
+
+    <div class="status-chips" id="status-chips" role="tablist" aria-label="Status"></div>
+
+    <p class="result-line" id="result-line"></p>
+    <div id="list-container" aria-live="polite"></div>
+    <nav class="pager" id="pager" aria-label="Paginação"></nav>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="/admin/js/perguntas.js"></script>
+</body>
+</html>
