@@ -167,6 +167,48 @@ describe('GET /api/v1/admin/perguntas — filtros da biblioteca', () => {
   });
 });
 
+describe('GET /api/v1/admin/perguntas/:id', () => {
+  it('exige token', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/1');
+    expect(res.status).toBe(401);
+  });
+
+  it('devolve o detalhe de qualquer status (inclusive arquivada) com engajamento', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/2').set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(2);
+    expect(res.body.data.status).toBe('ARQUIVADA');
+    expect(res.body.data.reacoes).toEqual({ ESCLARECIDA: 0, DUVIDA: 0 });
+    expect(res.body.data._count.comentarios).toBe(0);
+  });
+
+  it('404 quando não existe', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/999').set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(404);
+  });
+
+  it('422 com id inválido', async () => {
+    const res = await request(app).get('/api/v1/admin/perguntas/abc').set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(422);
+  });
+});
+
+describe('GET /api/v1/admin/perguntas — filtros da biblioteca', () => {
+  it('aceita ?ordem=recentes e ?categoria=', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/perguntas?ordem=recentes&categoria=Escatologia')
+      .set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('rejeita ordem inválida', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/perguntas?ordem=aleatoria')
+      .set('Authorization', `Bearer ${tokenValido()}`);
+    expect(res.status).toBe(422);
+  });
+});
+
 describe('PATCH /api/v1/admin/perguntas/arquivar', () => {
   it('arquiva em lote', async () => {
     const res = await request(app)

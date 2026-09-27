@@ -595,3 +595,4 @@ populateBookSelect();
 renderTabs();
 loadList();
 abrirEditorPorUrl();
+abrirEditorPorUrl();

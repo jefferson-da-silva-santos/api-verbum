@@ -131,6 +131,7 @@ button {
   font-weight: 600;
   transition: opacity 0.15s;
   text-decoration: none;
+  text-decoration: none;
 }
 
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
